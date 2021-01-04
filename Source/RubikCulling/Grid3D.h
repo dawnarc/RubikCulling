@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "UObject/NoExportTypes.h"
+#include "GameFramework/Actor.h"
 #include "Grid3D.generated.h"
 
 
@@ -23,27 +24,35 @@ struct FCellInfo
  * 
  */
 UCLASS()
-class RUBIKCULLING_API UGrid3D : public UObject, public FTickableGameObject
+class RUBIKCULLING_API AGrid3D : public AActor
 {
 	GENERATED_BODY()
 
 public:
 
-	UGrid3D();
+	AGrid3D();
 
 	void SetBound(const FBox& InBound);
 
 	void SetCellSize(float InCellSize);
 
+	void HandleActorOutOfSpatialBounds(const FVector& Location3D);
+	
+	const FVector& GetSpatialBias() { return SpatialBias; }
+
+	int32 GetCellSize() { return CellSize; }
+
 protected:
 
 	virtual void Tick(float DeltaTime) override;
-	virtual bool IsTickable() const override { return GIsRunning; }
-	virtual TStatId GetStatId() const override { return GetStatID(); }
+	/*virtual bool IsTickable() const override { return GIsRunning; }
+	virtual TStatId GetStatId() const override { return GetStatID(); }*/
 
 private:
 
 	FBox Bound;
-
-	int32 CellSize = 1000;
+	
+	FVector SpatialBias;
+	
+	int32 CellSize = 200;
 };

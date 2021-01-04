@@ -13,6 +13,10 @@ UCLASS()
 class RUBIKCULLING_API ARCGameMode : public AGameModeBase
 {
 	GENERATED_BODY()
+	
+	public:
+
+	class AGrid3D* GetGrid3D(){ return Grid3D; };
 
 protected:
 
@@ -21,5 +25,5 @@ protected:
 private:
 
 	UPROPERTY()
-	class UGrid3D* Grid3D = nullptr; 
+	class AGrid3D* Grid3D = nullptr; 
 };

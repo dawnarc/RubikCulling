@@ -8,5 +8,8 @@ void ARCGameMode::StartPlay()
 {
 	Super::StartPlay();
 
-	Grid3D = NewObject<UGrid3D>();
+	Grid3D = NewObject<AGrid3D>();
+	FBox Bound(FVector(-HALF_WORLD_MAX, -HALF_WORLD_MAX, -HALF_WORLD_MAX), FVector(HALF_WORLD_MAX, HALF_WORLD_MAX, HALF_WORLD_MAX));
+	Grid3D->SetBound(Bound);
+	Grid3D->SetCellSize(1000);
 }

@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Grid3D.h"
 #include "CenterActor.generated.h"
 
 UCLASS()
@@ -23,9 +24,28 @@ protected:
 	{
 		return true;
 	}
-
-public:	
+	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
+	FCellInfo GetCellInfoForActor(float InCullDistance, float InCellSize, const FVector& InSpatialBias);
+
+	void HandleActorOutOfSpatialBounds(const FVector& Location3D);
+
+	void DrawDebugCellInfo(float InCellSize, const FVector& InSpatialBias);
+
+protected:
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+	class AGrid3D* Grid3D = nullptr;
+
+private:
+
+	float CullDistance = 500;
+
+	FVector SpatialBias;
+	
+	int32 CellSize = 200;
+	
+	FCellInfo PrevCellInfo;
 };

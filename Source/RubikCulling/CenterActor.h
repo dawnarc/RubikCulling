@@ -44,10 +44,4 @@ protected:
 private:
 
 	float CullDistance = 500;
-
-	FVector SpatialBias;
-	
-	int32 CellSize = 200;
-	
-	FCellInfo PrevCellInfo;
 };

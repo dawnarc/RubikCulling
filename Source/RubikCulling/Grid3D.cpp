@@ -36,6 +36,33 @@ void AGrid3D::HandleActorOutOfSpatialBounds(const FVector& Location3D)
 	}
 }
 
+TArray<TArray<UCellNode*>>& AGrid3D::GetGridX(int32 X)
+{
+	if (Cells.Num() <= X)
+	{
+		Cells.SetNum(X + 1);
+	}
+	return Cells[X];
+}
+
+TArray<UCellNode*>& AGrid3D::GetGridY(TArray<TArray<UCellNode*>>& GridX, int32 Y)
+{
+	if (GridX.Num() <= Y)
+	{
+		GridX.SetNum(Y + 1);
+	}
+	return GridX[Y];
+}
+
+UCellNode*& AGrid3D::GetCell(TArray<UCellNode*>& GridY, int32 Z)
+{
+	if (GridY.Num() <= Z)
+	{
+		GridY.SetNum(Z + 1);
+	}
+	return GridY[Z];
+}
+
 FCellInfo AGrid3D::GetCellInfoForActor(const FVector& TargetLocation, float InCullDistance, float InCellSize, const FVector& InSpatialBias)
 {
 	FVector ClampedLocation = TargetLocation;
@@ -72,9 +99,9 @@ FCellInfo AGrid3D::GetCellInfoForActor(const FVector& TargetLocation, float InCu
 	return CellInfo;
 }
 
-void AGrid3D::DrawDebugCellInfo(const FVector& TargetLocation, float CullDistance, float InCellSize, const FVector& InSpatialBias)
+void AGrid3D::DrawDebugCellInfo(const FVector& TargetLocation, float InCullDistance, float InCellSize, const FVector& InSpatialBias)
 {
-	FCellInfo NewCellInfo = GetCellInfoForActor(TargetLocation, CullDistance, InCellSize, InSpatialBias);
+	FCellInfo NewCellInfo = GetCellInfoForActor(TargetLocation, InCullDistance, InCellSize, InSpatialBias);
 	for(int32 X = NewCellInfo.StartX; X <= NewCellInfo.EndX; X++)
 	{
 		for(int32 Y = NewCellInfo.StartY; Y <= NewCellInfo.EndY; Y++)
@@ -85,282 +112,153 @@ void AGrid3D::DrawDebugCellInfo(const FVector& TargetLocation, float CullDistanc
 				TargetCell.X = X * InCellSize + InSpatialBias.X;
 				TargetCell.Y = Y * InCellSize + InSpatialBias.Y;
 				TargetCell.Z = Z * InCellSize + InSpatialBias.Z;
-				DrawDebugBox(GetWorld(), TargetCell + InCellSize / 2, FVector(InCellSize, InCellSize, InCellSize), FColor::Yellow, false, 0.1, 0, 2.f);
+				DrawDebugBox(GetWorld(), TargetCell + InCellSize / 2, FVector(InCellSize, InCellSize, InCellSize),
+					FColor::Yellow, false, 0.1, 0, 1.f);
 			}
 		}	
 	}
 }
 
-void AGrid3D::Rebuild()
+void AGrid3D::Rebuild(const FVector& TargetLocation)
 {
-	/*FCellInfo NewCellInfo = GetCellInfoForActor(CullDistance, Grid3D->GetCellSize(), Grid3D->GetSpatialBias());
+	FCellInfo NewCellInfo = GetCellInfoForActor(TargetLocation, CullDistance, CellSize, SpatialBias);
 
-	if (NewCellInfo.StartX > PrevCellInfo.EndX || NewCellInfo.EndX < PrevCellInfo.StartX ||
-                            NewCellInfo.StartY > PrevCellInfo.EndY || NewCellInfo.EndY < PrevCellInfo.StartY ||
-                            NewCellInfo.StartZ > PrevCellInfo.EndZ || NewCellInfo.EndZ < PrevCellInfo.StartZ)
+	if(PrevCellInfo.IsValid())
 	{
-		
-	}
-	else
-	{
-		// ================== calculate cells along X axis ================== 
-		if(PrevCellInfo.StartX < NewCellInfo.StartX)
+		if (NewCellInfo.StartX > PrevCellInfo.EndX || NewCellInfo.EndX < PrevCellInfo.StartX ||
+                             NewCellInfo.StartY > PrevCellInfo.EndY || NewCellInfo.EndY < PrevCellInfo.StartY ||
+                             NewCellInfo.StartZ > PrevCellInfo.EndZ || NewCellInfo.EndZ < PrevCellInfo.StartZ)
 		{
-			//remove
-			for(int32 x = PrevCellInfo.StartX; x < NewCellInfo.StartX; x++)
+			for(int32 x = PrevCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 			{
-				TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-				for(int32 y = PrevCellInfo.StartY; y < PrevCellInfo.EndY; y++)
+				TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+				for(int32 y = PrevCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
 				{
-					TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-					for(int32 z = PrevCellInfo.StartZ; z < PrevCellInfo.EndZ; z++)
+					TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+					for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
 					{
-						UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-						Cell->RemoveDynamicActor(ActorInfo);
-						//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+						UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+						Cell->DrawRed(x, y, z, CellSize, SpatialBias);
 					}
 				}
 			}
 
-			//add
-			for(int32 x = PrevCellInfo.EndX + 1; x <= NewCellInfo.EndX; x++)
+			for(int32 x = NewCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 			{
-				TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
+				TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
 				for(int32 y = NewCellInfo.StartY; y <= NewCellInfo.EndY; y++)
 				{
-					TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
+					TArray<UCellNode*>& GridY = GetGridY(GridX, y);
 					for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
 					{
-						UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-						Cell->AddDynamicActor(ActorInfo);
-						//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+						UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+						Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
 					}
 				}
 			}
 		}
-		else if(PrevCellInfo.StartX > NewCellInfo.StartX)
+		else
 		{
-			//remove
-			for(int32 x = NewCellInfo.EndX + 1; x <= PrevCellInfo.EndX; x++)
-			{
-				TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-				for(int32 y = PrevCellInfo.StartY; y < PrevCellInfo.EndY; y++)
-				{
-					TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-					for(int32 z = PrevCellInfo.StartZ; z < PrevCellInfo.EndZ; z++)
-					{
-						UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-						Cell->RemoveDynamicActor(ActorInfo);
-						//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-					}
-				}
-			}
-
-			//add
-			for(int32 x = NewCellInfo.StartX; x < PrevCellInfo.StartX; x++)
-			{
-				TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-				for(int32 y = NewCellInfo.StartY; y <= NewCellInfo.EndY; y++)
-				{
-					TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-					for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
-					{
-						UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-						Cell->AddDynamicActor(ActorInfo);
-						//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-					}
-				}
-			}
-		}
-
-		// ================== calculate cells along Y axis ================== 
-		if(PrevCellInfo.StartY < NewCellInfo.StartY)
-		{
+			// ================== calculate cells along X axis ================== 
 			if(PrevCellInfo.StartX < NewCellInfo.StartX)
 			{
-				bDirty = true;
-
 				//remove
-				for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+				for(int32 x = PrevCellInfo.StartX; x < NewCellInfo.StartX; x++)
 				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = PrevCellInfo.StartY; y < NewCellInfo.StartY; y++)
+					TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+					for(int32 y = PrevCellInfo.StartY; y < PrevCellInfo.EndY; y++)
 					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
+						TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+						for(int32 z = PrevCellInfo.StartZ; z < PrevCellInfo.EndZ; z++)
 						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->RemoveDynamicActor(ActorInfo);
+							UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+							Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+						}
+					}
+				}
+
+				//add
+				for(int32 x = PrevCellInfo.EndX + 1; x <= NewCellInfo.EndX; x++)
+				{
+					TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+					for(int32 y = NewCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+					{
+						TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
+						{
+							UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+							Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+						}
+					}
+				}
+			}
+			else if(PrevCellInfo.StartX > NewCellInfo.StartX)
+			{
+				//remove
+				for(int32 x = NewCellInfo.EndX + 1; x <= PrevCellInfo.EndX; x++)
+				{
+					TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+					for(int32 y = PrevCellInfo.StartY; y < PrevCellInfo.EndY; y++)
+					{
+						TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+						for(int32 z = PrevCellInfo.StartZ; z < PrevCellInfo.EndZ; z++)
+						{
+							UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+							Cell->DrawRed(x, y, z, CellSize, SpatialBias);
 							//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 						}
 					}
 				}
+
+				//add
+				for(int32 x = NewCellInfo.StartX; x < PrevCellInfo.StartX; x++)
+				{
+					TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+					for(int32 y = NewCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+					{
+						TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
+						{
+							UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+							Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+							//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+						}
+					}
+				}
+			}
+
+			// ================== calculate cells along Y axis ================== 
+			if(PrevCellInfo.StartY < NewCellInfo.StartY)
+			{
+				if(PrevCellInfo.StartX < NewCellInfo.StartX)
+				{
+					//remove
+					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+					{
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = PrevCellInfo.StartY; y < NewCellInfo.StartY; y++)
+						{
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
+							{
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+							}
+						}
+					}
 				
-				//add
-				for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = PrevCellInfo.EndY + 1; y <= NewCellInfo.EndY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->AddDynamicActor(ActorInfo);
-							//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-			}
-			else if(PrevCellInfo.StartX > NewCellInfo.StartX)
-			{
-				bDirty = true;
-
-				//remove
-				for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = PrevCellInfo.StartY; y < NewCellInfo.StartY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->RemoveDynamicActor(ActorInfo);
-							//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-
-				//add
-				for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = PrevCellInfo.EndY + 1; y <= NewCellInfo.EndY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->AddDynamicActor(ActorInfo);
-							//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-			}
-		}
-		else if(PrevCellInfo.StartY > NewCellInfo.StartY)
-		{
-			if(PrevCellInfo.StartX < NewCellInfo.StartX)
-			{
-				bDirty = true;
-
-				//remove
-				for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = NewCellInfo.EndY + 1; y <= PrevCellInfo.EndY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->RemoveDynamicActor(ActorInfo);
-							//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-
-				//add
-				for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = NewCellInfo.StartY; y < PrevCellInfo.StartY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->AddDynamicActor(ActorInfo);
-							//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-			}
-			else if(PrevCellInfo.StartX > NewCellInfo.StartX)
-			{
-				bDirty = true;
-
-				//remove
-				for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = NewCellInfo.EndY + 1; y <= PrevCellInfo.EndY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->RemoveDynamicActor(ActorInfo);
-							//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-
-				//add
-				for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
-				{
-					TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-					for(int32 y = NewCellInfo.StartY; y < PrevCellInfo.StartY; y++)
-					{
-						TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-						for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
-						{
-							UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-							Cell->AddDynamicActor(ActorInfo);
-							//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-						}
-					}
-				}
-			}
-		}
-
-		// ================== calculate cells along Z axis ==================
-		if(PrevCellInfo.StartZ < NewCellInfo.StartZ)
-		{
-			if(PrevCellInfo.StartY < NewCellInfo.StartY)
-			{
-				if(PrevCellInfo.StartX < NewCellInfo.StartX)
-				{
-					bDirty = true;
-					
-					//remove
-					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
-					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
-						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
-							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
-								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
-							}
-						}
-					}
-
 					//add
 					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = PrevCellInfo.EndY + 1; y <= NewCellInfo.EndY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
 								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -368,19 +266,17 @@ void AGrid3D::Rebuild()
 				}
 				else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 				{
-					bDirty = true;
-
 					//remove
 					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = PrevCellInfo.StartY; y < NewCellInfo.StartY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawRed(x, y, z, CellSize, SpatialBias);
 								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -389,14 +285,14 @@ void AGrid3D::Rebuild()
 					//add
 					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = PrevCellInfo.EndY + 1; y <= NewCellInfo.EndY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
 								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -407,19 +303,17 @@ void AGrid3D::Rebuild()
 			{
 				if(PrevCellInfo.StartX < NewCellInfo.StartX)
 				{
-					bDirty = true;
-
 					//remove
 					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = NewCellInfo.EndY + 1; y <= PrevCellInfo.EndY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawRed(x, y, z, CellSize, SpatialBias);
 								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -428,14 +322,14 @@ void AGrid3D::Rebuild()
 					//add
 					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = NewCellInfo.StartY; y < PrevCellInfo.StartY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
 								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -443,19 +337,17 @@ void AGrid3D::Rebuild()
 				}
 				else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 				{
-					bDirty = true;
-
 					//remove
 					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = NewCellInfo.EndY + 1; y <= PrevCellInfo.EndY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = PrevCellInfo.StartZ; z <= PrevCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawRed(x, y, z, CellSize, SpatialBias);
 								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
@@ -464,168 +356,307 @@ void AGrid3D::Rebuild()
 					//add
 					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <NewCellInfo.EndY; y++)
+						TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+						for(int32 y = NewCellInfo.StartY; y < PrevCellInfo.StartY; y++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+							TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+							for(int32 z = NewCellInfo.StartZ; z <= NewCellInfo.EndZ; z++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
+								UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+								Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
 								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
 							}
 						}
 					}
 				}
 			}
-		}
-		else if(PrevCellInfo.StartZ > NewCellInfo.StartZ)
-		{
-			if(PrevCellInfo.StartY < NewCellInfo.StartY)
-			{
-				if(PrevCellInfo.StartX < NewCellInfo.StartX)
-				{
-					bDirty = true;
 
-					//remove
-					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+			// ================== calculate cells along Z axis ==================
+			if(PrevCellInfo.StartZ < NewCellInfo.StartZ)
+			{
+				if(PrevCellInfo.StartY < NewCellInfo.StartY)
+				{
+					if(PrevCellInfo.StartX < NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						//remove
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
-								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
-
-					//add
-					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+					else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						//remove
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
-								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
 				}
-				else if(PrevCellInfo.StartX > NewCellInfo.StartX)
+				else if(PrevCellInfo.StartY > NewCellInfo.StartY)
 				{
-					bDirty = true;
-					
-					//remove
-					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+					if(PrevCellInfo.StartX < NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						//remove
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
-								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
-
-					//add
-					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+					else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+						//remove
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
-								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.StartZ; z < NewCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <NewCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = PrevCellInfo.EndZ + 1; z <= NewCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
 				}
 			}
-			else if(PrevCellInfo.StartY > NewCellInfo.StartY)
+			else if(PrevCellInfo.StartZ > NewCellInfo.StartZ)
 			{
-				if(PrevCellInfo.StartX < NewCellInfo.StartX)
+				if(PrevCellInfo.StartY < NewCellInfo.StartY)
 				{
-					bDirty = true;
-					
-					//remove
-					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+					if(PrevCellInfo.StartX < NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						//remove
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
-								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
-
-					//add
-					for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+					else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						//remove
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
-								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = NewCellInfo.StartY; y <= PrevCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
 				}
-				else if(PrevCellInfo.StartX > NewCellInfo.StartX)
+				else if(PrevCellInfo.StartY > NewCellInfo.StartY)
 				{
-					bDirty = true;
-
-					//remove
-					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+					if(PrevCellInfo.StartX < NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						//remove
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->RemoveDynamicActor(ActorInfo);
-								//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = NewCellInfo.StartX; x <= PrevCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
-
-					//add
-					for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+					else if(PrevCellInfo.StartX > NewCellInfo.StartX)
 					{
-						TArray<TArray<UPSReplicationGraphNode_CubeCell*>>& GridX = GetGridX(x);
-						for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+						//remove
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
 						{
-							TArray<UPSReplicationGraphNode_CubeCell*>& GridY = GetGridY(GridX, y);
-							for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
 							{
-								UPSReplicationGraphNode_CubeCell* Cell = GetCellNode(GetCell(GridY, z));
-								Cell->AddDynamicActor(ActorInfo);
-								//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.EndZ + 1; z <= PrevCellInfo.EndZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawRed(x, y, z, CellSize, SpatialBias);
+									//ToBeHiddenActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
+							}
+						}
+
+						//add
+						for(int32 x = PrevCellInfo.StartX; x <= NewCellInfo.EndX; x++)
+						{
+							TArray<TArray<UCellNode*>>& GridX = GetGridX(x);
+							for(int32 y = PrevCellInfo.StartY; y <= NewCellInfo.EndY; y++)
+							{
+								TArray<UCellNode*>& GridY = GetGridY(GridX, y);
+								for(int32 z = NewCellInfo.StartZ; z < PrevCellInfo.StartZ; z++)
+								{
+									UCellNode* Cell = GetCellNode(GetCell(GridY, z));
+									Cell->DrawGreen(x, y, z, CellSize, SpatialBias);
+									//ToBeVisibleActors.Append(GetDistCullCell(GetUniqueCell(x, y, z))->GetActors());
+								}
 							}
 						}
 					}
@@ -634,7 +665,7 @@ void AGrid3D::Rebuild()
 		}
 	}
 
-	PrevCellInfo = NewCellInfo;*/
+	PrevCellInfo = NewCellInfo;
 }
 
 void AGrid3D::Tick(float DeltaTime)

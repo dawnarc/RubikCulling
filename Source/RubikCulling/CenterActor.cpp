@@ -40,9 +40,8 @@ void ACenterActor::Tick(float DeltaTime)
 	{
 		Grid3D->HandleActorOutOfSpatialBounds(GetActorLocation());
 
-		//Grid3D->Rebuild();
-		
-		//DrawDebugCellInfo(CellSize, SpatialBias);
 		Grid3D->DrawDebugCellInfo(GetActorLocation(), CullDistance, Grid3D->GetCellSize(), Grid3D->GetSpatialBias());
+
+		Grid3D->Rebuild(GetActorLocation());
 	}
 }

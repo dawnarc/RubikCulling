@@ -37,6 +37,12 @@ public:
 	void SetCellSize(float InCellSize);
 
 	void HandleActorOutOfSpatialBounds(const FVector& Location3D);
+
+	FCellInfo GetCellInfoForActor(const FVector& TargetLocation, float InCullDistance, float InCellSize, const FVector& InSpatialBias);
+
+	void DrawDebugCellInfo(const FVector& TargetLocation, float CullDistance, float InCellSize, const FVector& InSpatialBias);
+
+	void Rebuild();
 	
 	const FVector& GetSpatialBias() { return SpatialBias; }
 

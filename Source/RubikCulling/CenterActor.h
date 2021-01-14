@@ -28,11 +28,13 @@ protected:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	FCellInfo GetCellInfoForActor(float InCullDistance, float InCellSize, const FVector& InSpatialBias);
+	FCellInfo GetCellInfoForActor(const FVector& TargetLocation, float InCullDistance, float InCellSize, const FVector& InSpatialBias);
 
 	void HandleActorOutOfSpatialBounds(const FVector& Location3D);
 
-	void DrawDebugCellInfo(float InCellSize, const FVector& InSpatialBias);
+	void Rebuild();
+	
+	void DrawDebugCellInfo(const FVector& TargetLocation, float InCellSize, const FVector& InSpatialBias);
 
 protected:
 
